@@ -1,0 +1,14 @@
+{
+  "name": "Sabot — Assistant Blackjack",
+  "short_name": "Sabot",
+  "description": "Comptage de cartes, probabilités et stratégie de base pour le blackjack",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0c3b2e",
+  "theme_color": "#0c3b2e",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

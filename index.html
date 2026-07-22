@@ -1,0 +1,796 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0c3b2e">
+<title>Sabot — Assistant Blackjack</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon.svg">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500;0,9..144,700;1,9..144,500&family=JetBrains+Mono:wght@400;500;700&family=Inter:wght@400;500;600&display=swap');
+
+  :root{
+    --felt-deep:#0c3b2e;
+    --felt:#0f4a38;
+    --felt-light:#146449;
+    --gold:#c9a24b;
+    --gold-bright:#e8c877;
+    --cream:#f2ead9;
+    --cream-dim:#c9c0aa;
+    --red:#a6362c;
+    --ink:#08201a;
+    --line:rgba(242,234,217,0.14);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:
+      radial-gradient(ellipse at top, var(--felt-light), var(--felt) 45%, var(--felt-deep) 100%);
+    color:var(--cream);
+    font-family:'Inter',sans-serif;
+    min-height:100vh;
+    padding-bottom:60px;
+  }
+  .wrap{max-width:640px;margin:0 auto;padding:20px 16px 0;}
+
+  header{
+    text-align:center;
+    padding:18px 0 14px;
+    border-bottom:1px solid var(--line);
+    margin-bottom:18px;
+  }
+  header h1{
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:28px;
+    letter-spacing:0.5px;
+    margin:0;
+    color:var(--gold-bright);
+  }
+  header .sub{
+    font-size:12px;
+    letter-spacing:2px;
+    text-transform:uppercase;
+    color:var(--cream-dim);
+    margin-top:4px;
+  }
+
+  .panel{
+    background:rgba(8,32,26,0.45);
+    border:1px solid var(--line);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:14px;
+  }
+  .panel h2{
+    font-family:'Fraunces',serif;
+    font-size:14px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    color:var(--gold);
+    margin:0 0 12px;
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .panel h2 .n{
+    font-family:'JetBrains Mono',monospace;
+    color:var(--felt-deep);
+    background:var(--gold);
+    width:20px;height:20px;
+    border-radius:50%;
+    display:inline-flex;
+    align-items:center;justify-content:center;
+    font-size:11px;
+    font-weight:700;
+  }
+
+  /* Setup */
+  .row{display:flex;gap:8px;flex-wrap:wrap;}
+  .chip{
+    flex:1;
+    min-width:44px;
+    padding:10px 6px;
+    text-align:center;
+    background:rgba(242,234,217,0.06);
+    border:1px solid var(--line);
+    border-radius:10px;
+    cursor:pointer;
+    font-family:'JetBrains Mono',monospace;
+    font-size:14px;
+    transition:all .15s;
+    user-select:none;
+  }
+  .chip:hover{background:rgba(242,234,217,0.12);}
+  .chip.active{
+    background:var(--gold);
+    color:var(--ink);
+    border-color:var(--gold);
+    font-weight:700;
+  }
+
+  .tabs{display:flex;gap:6px;margin-bottom:12px;}
+  .tab{
+    flex:1;
+    padding:8px 4px;
+    text-align:center;
+    font-size:12px;
+    letter-spacing:0.5px;
+    text-transform:uppercase;
+    border-radius:8px;
+    background:rgba(242,234,217,0.05);
+    border:1px solid var(--line);
+    cursor:pointer;
+  }
+  .tab.active{background:var(--felt-light);border-color:var(--gold);color:var(--gold-bright);}
+
+  .padgrid{
+    display:grid;
+    grid-template-columns:repeat(5,1fr);
+    gap:8px;
+  }
+  .card-btn{
+    aspect-ratio:1/1;
+    display:flex;align-items:center;justify-content:center;
+    background:var(--cream);
+    color:var(--ink);
+    border-radius:8px;
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:17px;
+    cursor:pointer;
+    border:2px solid transparent;
+    transition:transform .1s;
+    position:relative;
+  }
+  .card-btn:active{transform:scale(0.93);}
+  .card-btn.low{box-shadow:inset 0 0 0 2px rgba(60,140,90,0.5);}
+  .card-btn.neutral{box-shadow:inset 0 0 0 2px rgba(180,160,80,0.4);}
+  .card-btn.high{box-shadow:inset 0 0 0 2px rgba(166,54,44,0.55);}
+  .card-btn .cnt{
+    position:absolute;
+    bottom:2px;right:4px;
+    font-family:'JetBrains Mono',monospace;
+    font-size:9px;
+    font-weight:400;
+    color:var(--felt);
+    opacity:0.6;
+  }
+  .card-btn:disabled{opacity:0.25;cursor:not-allowed;}
+
+  .hand-display{
+    min-height:38px;
+    display:flex;
+    gap:6px;
+    flex-wrap:wrap;
+    align-items:center;
+    margin-bottom:10px;
+  }
+  .mini-card{
+    background:var(--cream);
+    color:var(--ink);
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:13px;
+    padding:5px 9px;
+    border-radius:6px;
+  }
+  .hand-meta{
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--cream-dim);
+  }
+  .empty-hint{font-size:12px;color:var(--cream-dim);font-style:italic;}
+
+  .btnrow{display:flex;gap:8px;margin-top:8px;}
+  .smallbtn{
+    padding:6px 12px;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.5px;
+    background:transparent;
+    border:1px solid var(--line);
+    color:var(--cream-dim);
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .smallbtn:hover{border-color:var(--gold);color:var(--gold-bright);}
+
+  /* Count display */
+  .count-grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+  }
+  .stat{
+    background:rgba(0,0,0,0.18);
+    border-radius:10px;
+    padding:12px;
+    text-align:center;
+  }
+  .stat .label{
+    font-size:10px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    color:var(--cream-dim);
+    margin-bottom:4px;
+  }
+  .stat .value{
+    font-family:'JetBrains Mono',monospace;
+    font-size:26px;
+    font-weight:700;
+    color:var(--gold-bright);
+  }
+  .stat .value.neg{color:var(--red);}
+  .stat.wide{grid-column:1/-1;}
+
+  /* Shoe composition bar — signature element */
+  .shoe-bar{
+    display:flex;
+    height:34px;
+    border-radius:8px;
+    overflow:hidden;
+    border:1px solid var(--line);
+  }
+  .shoe-seg{
+    display:flex;align-items:center;justify-content:center;
+    font-family:'JetBrains Mono',monospace;
+    font-size:10px;
+    color:var(--ink);
+    background:var(--cream);
+    border-right:1px solid rgba(12,59,46,0.3);
+    transition:flex-grow .3s;
+  }
+  .shoe-seg:last-child{border-right:none;}
+  .shoe-labels{
+    display:flex;
+    margin-top:5px;
+  }
+  .shoe-labels span{
+    flex:1;
+    text-align:center;
+    font-size:9px;
+    color:var(--cream-dim);
+    font-family:'JetBrains Mono',monospace;
+  }
+
+  /* Recommendation */
+  .reco{
+    text-align:center;
+    padding:18px;
+    border-radius:12px;
+    background:linear-gradient(135deg, rgba(201,162,75,0.15), rgba(201,162,75,0.03));
+    border:1px solid var(--gold);
+  }
+  .reco .action{
+    font-family:'Fraunces',serif;
+    font-weight:700;
+    font-size:32px;
+    color:var(--gold-bright);
+    letter-spacing:1px;
+  }
+  .reco .why{
+    font-size:12px;
+    color:var(--cream-dim);
+    margin-top:6px;
+  }
+  .prob-row{
+    display:flex;
+    justify-content:space-between;
+    font-family:'JetBrains Mono',monospace;
+    font-size:12px;
+    color:var(--cream-dim);
+    margin-top:14px;
+    padding-top:12px;
+    border-top:1px solid var(--line);
+  }
+  .prob-row b{color:var(--cream);}
+
+  .bet-badge{
+    display:inline-block;
+    padding:8px 20px;
+    border-radius:20px;
+    font-family:'JetBrains Mono',monospace;
+    font-weight:700;
+    font-size:14px;
+    letter-spacing:1px;
+  }
+  .bet-min{background:rgba(120,120,120,0.2);color:var(--cream-dim);}
+  .bet-normal{background:rgba(201,162,75,0.2);color:var(--gold-bright);}
+  .bet-high{background:rgba(166,54,44,0.25);color:#e8877e;}
+  .bet-max{background:var(--gold);color:var(--ink);}
+
+  .disclaimer{
+    font-size:10.5px;
+    color:var(--cream-dim);
+    text-align:center;
+    line-height:1.5;
+    padding:0 10px;
+    opacity:0.7;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>♠ Sabot</h1>
+    <div class="sub">Assistant de comptage &amp; stratégie blackjack</div>
+  </header>
+
+  <!-- 1. Setup -->
+  <div class="panel">
+    <h2><span class="n">1</span>Sabot</h2>
+    <div class="row" id="deckRow"></div>
+    <div class="btnrow">
+      <button class="smallbtn" id="resetShoe">↺ Nouveau sabot</button>
+      <button class="smallbtn" id="undoBtn">⌫ Annuler dernière carte</button>
+    </div>
+  </div>
+
+  <!-- 2. Card entry -->
+  <div class="panel">
+    <h2><span class="n">2</span>Cartes vues</h2>
+    <div class="tabs">
+      <div class="tab active" data-tab="me">Ma main</div>
+      <div class="tab" data-tab="dealer">Croupier</div>
+      <div class="tab" data-tab="other">Autres / brûlées</div>
+    </div>
+
+    <div id="handMe">
+      <div class="hand-meta" id="metaMe"></div>
+      <div class="hand-display" id="displayMe"></div>
+    </div>
+    <div id="handDealer" style="display:none;">
+      <div class="hand-meta" id="metaDealer"></div>
+      <div class="hand-display" id="displayDealer"></div>
+    </div>
+    <div id="handOther" style="display:none;">
+      <div class="hand-meta">Cartes vues qui n'appartiennent ni à moi ni au croupier (autres joueurs, cartes brûlées)</div>
+      <div class="hand-display" id="displayOther"></div>
+    </div>
+
+    <div class="padgrid" id="cardPad"></div>
+    <div class="btnrow">
+      <button class="smallbtn" id="clearHandBtn">Vider cette main</button>
+    </div>
+  </div>
+
+  <!-- 3. Count -->
+  <div class="panel">
+    <h2><span class="n">3</span>Comptage (Hi-Lo)</h2>
+    <div class="count-grid">
+      <div class="stat">
+        <div class="label">Running Count</div>
+        <div class="value" id="runningVal">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">True Count</div>
+        <div class="value" id="trueVal">0.0</div>
+      </div>
+      <div class="stat wide">
+        <div class="label">Avantage joueur estimé</div>
+        <div class="value" id="edgeVal" style="font-size:18px;">≈ neutre</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 4. Shoe composition -->
+  <div class="panel">
+    <h2><span class="n">4</span>Composition du sabot restant</h2>
+    <div class="shoe-bar" id="shoeBar"></div>
+    <div class="shoe-labels" id="shoeLabels"></div>
+    <div class="hand-meta" style="margin-top:10px;" id="shoeMeta"></div>
+  </div>
+
+  <!-- 5. Recommendation -->
+  <div class="panel">
+    <h2><span class="n">5</span>Recommandation</h2>
+    <div class="btnrow" style="margin:0 0 12px;">
+      <div class="chip" id="devToggle" style="flex:none;padding:8px 14px;">Déviations (Illustrious 18) : <b id="devState">OFF</b></div>
+    </div>
+    <div class="reco">
+      <div class="action" id="recoAction">—</div>
+      <div class="why" id="recoWhy">Ajoutez votre main et la carte du croupier</div>
+      <div class="why" id="insuranceLine" style="margin-top:6px;color:var(--gold-bright);display:none;"></div>
+      <div class="prob-row">
+        <span>Prob. de bust si vous tirez : <b id="bustProb">—</b></span>
+        <span>Prochaine carte forte (10/As) : <b id="highProb">—</b></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 6. Bet -->
+  <div class="panel" style="text-align:center;">
+    <h2 style="justify-content:center;"><span class="n">6</span>Mise suggérée</h2>
+    <div class="bet-badge" id="betBadge">MISE MINIMALE</div>
+  </div>
+
+  <div class="disclaimer">
+    Le comptage de cartes n'est pas illégal, mais son usage à la table est mal vu voire interdit
+    dans les casinos physiques. Outil pédagogique / pour le jeu en ligne et l'entraînement.
+    Les probabilités affichées sont des estimations basées sur les cartes déjà connues du sabot.
+  </div>
+</div>
+
+<script>
+/* ====================== STATE ====================== */
+const RANKS = ['2','3','4','5','6','7','8','9','10','A'];
+const RANK_LABEL = {'2':'2','3':'3','4':'4','5':'5','6':'6','7':'7','8':'8','9':'9','10':'10/J/Q/K','A':'A'};
+
+let state = {
+  decks: 6,
+  shoe: {},          // remaining count per rank
+  runningCount: 0,
+  history: [],       // stack of {rank, zone} for undo
+  activeTab: 'me',
+  hands: { me: [], dealer: [], other: [] },
+  useDeviations: false
+};
+
+function hiLoValue(rank){
+  if(['2','3','4','5','6'].includes(rank)) return 1;
+  if(['7','8','9'].includes(rank)) return 0;
+  return -1; // 10, A
+}
+
+function initShoe(decks){
+  const shoe = {};
+  RANKS.forEach(r=>{
+    shoe[r] = (r==='10') ? 16*decks : 4*decks; // 10/J/Q/K combined = 16 cards/deck
+  });
+  return shoe;
+}
+
+function resetAll(decks){
+  state.decks = decks;
+  state.shoe = initShoe(decks);
+  state.runningCount = 0;
+  state.history = [];
+  state.hands = { me: [], dealer: [], other: [] };
+  render();
+}
+
+/* ====================== HAND VALUE ====================== */
+function rankValue(r){
+  if(r==='A') return 11;
+  if(['10'].includes(r)) return 10;
+  return parseInt(r,10);
+}
+
+function computeHandValue(cards){
+  let total = 0, aces = 0;
+  cards.forEach(r=>{
+    if(r==='A'){ aces++; total+=11; }
+    else total += rankValue(r);
+  });
+  let softAces = aces;
+  while(total>21 && softAces>0){ total -= 10; softAces--; }
+  const soft = softAces>0; // usable ace counted as 11
+  return {total, soft, isPair: cards.length===2 && cards[0]===cards[1]};
+}
+
+/* ====================== BASIC STRATEGY ====================== */
+// Illustrious 18 (version simplifiée) — déviations les plus rentables selon le true count.
+// Chaque entrée : condition sur la main dure (hard) + carte croupier + seuil de TC + action si TC atteint.
+const DEVIATIONS = [
+  // {hard total, dealer value, minTC, action, why}
+  {total:16, d:10, minTC:0,  action:'STAND',  why:'Déviation: Dur 16 vs 10, TC≥0 → rester (au lieu de tirer)'},
+  {total:16, d:9,  minTC:5,  action:'STAND',  why:'Déviation: Dur 16 vs 9, TC≥5 → rester'},
+  {total:15, d:10, minTC:4,  action:'STAND',  why:'Déviation: Dur 15 vs 10, TC≥4 → rester'},
+  {total:13, d:2,  minTC:-1, action:'STAND',  why:'Déviation: Dur 13 vs 2, TC≥-1 → rester'},
+  {total:12, d:2,  minTC:3,  action:'STAND',  why:'Déviation: Dur 12 vs 2, TC≥3 → rester'},
+  {total:12, d:3,  minTC:2,  action:'STAND',  why:'Déviation: Dur 12 vs 3, TC≥2 → rester'},
+  {total:11, d:11, minTC:1,  action:'DOUBLE', why:'Déviation: Dur 11 vs As, TC≥1 → doubler'},
+  {total:10, d:11, minTC:4,  action:'DOUBLE', why:'Déviation: Dur 10 vs As, TC≥4 → doubler'},
+  {total:9,  d:2,  minTC:1,  action:'DOUBLE', why:'Déviation: Dur 9 vs 2, TC≥1 → doubler'},
+  {total:9,  d:7,  minTC:3,  action:'DOUBLE', why:'Déviation: Dur 9 vs 7, TC≥3 → doubler'},
+];
+
+function applyDeviations(baseReco, playerCards, dealerRank, tc, useDeviations){
+  if(!useDeviations || tc===null) return baseReco;
+  const {total, soft, isPair} = computeHandValue(playerCards);
+  if(soft || isPair) return baseReco; // Illustrious 18 ne couvre que les mains dures ici
+  const d = dealerRank==='A' ? 11 : rankValue(dealerRank);
+  const hit = DEVIATIONS.find(dev => dev.total===total && dev.d===d && tc>=dev.minTC);
+  if(hit) return {action:hit.action, why:hit.why, deviated:true};
+  return baseReco;
+}
+
+function insuranceAdvice(dealerRank, tc){
+  if(dealerRank!=='A' || tc===null) return null;
+  return tc>=3
+    ? {take:true, why:'Déviation: TC≥3 → prendre l\'assurance (rentable)'}
+    : {take:false, why:'TC<3 → ne pas prendre l\'assurance (mise à espérance négative)'};
+}
+
+// Dealer up-card grouped as index 2-10 then A
+function getBasicStrategy(playerCards, dealerRank){
+  if(playerCards.length<1 || !dealerRank) return null;
+  const {total, soft, isPair} = computeHandValue(playerCards);
+  const d = dealerRank==='A' ? 11 : rankValue(dealerRank);
+
+  // Pairs
+  if(isPair){
+    const r = playerCards[0];
+    if(r==='A') return {action:'SPLIT', why:'Toujours séparer les As'};
+    if(r==='10') return {action:'STAND', why:'Ne jamais séparer les 10/figures'};
+    if(r==='9'){
+      if([2,3,4,5,6,8,9].includes(d)) return {action:'SPLIT', why:'Paire de 9 vs '+dealerRank};
+      return {action:'STAND', why:'Paire de 9 vs 7/10/As → rester'};
+    }
+    if(r==='8') return {action:'SPLIT', why:'Toujours séparer les 8 (évite le 16)'};
+    if(r==='7'){ if(d<=7) return {action:'SPLIT', why:'Paire de 7 vs 2-7'}; return {action:'HIT', why:'Paire de 7 vs 8+'}; }
+    if(r==='6'){ if(d<=6) return {action:'SPLIT', why:'Paire de 6 vs 2-6'}; return {action:'HIT', why:'Paire de 6 vs 7+'}; }
+    if(r==='5'){ if(d<=9) return {action:'DOUBLE', why:'5+5=10, doubler comme une main dure'}; return {action:'HIT', why:'10 vs 10/As → tirer'}; }
+    if(r==='4'){ if(d===5||d===6) return {action:'SPLIT', why:'Paire de 4 vs 5-6'}; return {action:'HIT', why:'Paire de 4 ailleurs'}; }
+    if(r==='3'||r==='2'){ if(d<=7) return {action:'SPLIT', why:'Petite paire vs 2-7'}; return {action:'HIT', why:'Petite paire vs 8+'}; }
+  }
+
+  // Soft totals
+  if(soft){
+    if(total>=20) return {action:'STAND', why:'Soft 20+ → rester'};
+    if(total===19){ if(d===6) return {action:'DOUBLE', why:'Soft 19 vs 6 → doubler'}; return {action:'STAND', why:'Soft 19 → rester'}; }
+    if(total===18){
+      if(d>=2 && d<=6) return {action:'DOUBLE', why:'Soft 18 vs 2-6 → doubler'};
+      if(d===7||d===8) return {action:'STAND', why:'Soft 18 vs 7/8 → rester'};
+      return {action:'HIT', why:'Soft 18 vs 9/10/As → tirer'};
+    }
+    if(total===17){ if(d>=3&&d<=6) return {action:'DOUBLE', why:'Soft 17 vs 3-6'}; return {action:'HIT', why:'Soft 17 ailleurs'}; }
+    if(total===16||total===15){ if(d>=4&&d<=6) return {action:'DOUBLE', why:'Soft '+total+' vs 4-6'}; return {action:'HIT', why:'Soft '+total+' ailleurs'}; }
+    if(total===14||total===13){ if(d===5||d===6) return {action:'DOUBLE', why:'Soft '+total+' vs 5-6'}; return {action:'HIT', why:'Soft '+total+' ailleurs'}; }
+    return {action:'HIT', why:'Main soft basse'};
+  }
+
+  // Hard totals
+  if(total>=17) return {action:'STAND', why:'Total dur 17+ → rester'};
+  if(total>=13 && total<=16){
+    if(d<=6) return {action:'STAND', why:'Dur '+total+' vs carte faible (2-6) → rester'};
+    if(total===16 && d>=9) return {action:'SURRENDER/HIT', why:'Dur 16 vs 9/10/As → abandonner si possible, sinon tirer'};
+    if(total===15 && d===10) return {action:'SURRENDER/HIT', why:'Dur 15 vs 10 → abandonner si possible, sinon tirer'};
+    return {action:'HIT', why:'Dur '+total+' vs carte forte (7+) → tirer'};
+  }
+  if(total===12){ if(d>=4&&d<=6) return {action:'STAND', why:'Dur 12 vs 4-6 → rester'}; return {action:'HIT', why:'Dur 12 ailleurs → tirer'}; }
+  if(total===11){ if(d<=10) return {action:'DOUBLE', why:'Dur 11 vs 2-10 → doubler'}; return {action:'HIT', why:'Dur 11 vs As → tirer'}; }
+  if(total===10){ if(d<=9) return {action:'DOUBLE', why:'Dur 10 vs 2-9 → doubler'}; return {action:'HIT', why:'Dur 10 vs 10/As → tirer'}; }
+  if(total===9){ if(d>=3&&d<=6) return {action:'DOUBLE', why:'Dur 9 vs 3-6 → doubler'}; return {action:'HIT', why:'Dur 9 ailleurs → tirer'}; }
+  return {action:'HIT', why:'Total bas → toujours tirer'};
+}
+
+/* ====================== PROBABILITIES ====================== */
+function totalRemaining(){
+  return RANKS.reduce((s,r)=>s+state.shoe[r],0);
+}
+
+function bustProbability(){
+  const cards = state.hands.me;
+  if(cards.length===0) return null;
+  const rem = totalRemaining();
+  if(rem===0) return null;
+  let bustWeight = 0;
+  RANKS.forEach(r=>{
+    const n = state.shoe[r];
+    if(n<=0) return;
+    const newVal = computeHandValue([...cards, r]);
+    if(newVal.total>21) bustWeight += n;
+  });
+  return bustWeight/rem;
+}
+
+function highCardProbability(){
+  const rem = totalRemaining();
+  if(rem===0) return null;
+  const high = state.shoe['10'] + state.shoe['A'];
+  return high/rem;
+}
+
+function trueCount(){
+  const rem = totalRemaining();
+  const decksRem = rem/52;
+  if(decksRem < 0.25) return null;
+  return state.runningCount/decksRem;
+}
+
+function estimatedEdge(tc){
+  if(tc===null) return '≈ neutre';
+  // rule of thumb: ~0.5% edge per true count above ~1 (house starts around -0.5%)
+  const edge = (tc*0.5) - 0.5;
+  const pct = edge.toFixed(1);
+  if(edge>0.3) return '+'+pct+'% (favorable)';
+  if(edge<-0.8) return pct+'% (défavorable)';
+  return pct+'% (proche neutre)';
+}
+
+function betSuggestion(tc){
+  if(tc===null || tc<1) return {label:'MISE MINIMALE', cls:'bet-min'};
+  if(tc<2) return {label:'MISE NORMALE', cls:'bet-normal'};
+  if(tc<4) return {label:'MISE ÉLEVÉE', cls:'bet-high'};
+  return {label:'MISE MAXIMALE', cls:'bet-max'};
+}
+
+/* ====================== ACTIONS ====================== */
+function addCard(rank){
+  const zone = state.activeTab;
+  if(state.shoe[rank]<=0) return; // none left
+  state.shoe[rank]--;
+  state.runningCount += hiLoValue(rank);
+  state.history.push({rank, zone});
+  if(zone==='me') state.hands.me.push(rank);
+  else if(zone==='dealer') state.hands.dealer.push(rank);
+  else state.hands.other.push(rank);
+  render();
+}
+
+function undoLast(){
+  const last = state.history.pop();
+  if(!last) return;
+  state.shoe[last.rank]++;
+  state.runningCount -= hiLoValue(last.rank);
+  const arr = state.hands[last.zone];
+  const idx = arr.lastIndexOf(last.rank);
+  if(idx>-1) arr.splice(idx,1);
+  render();
+}
+
+function clearHand(zone){
+  // returns those cards to the shoe & count, but keeps them as "seen"? 
+  // Here: clearing a hand just moves its cards conceptually to "already seen" (dealt away),
+  // it does NOT return them to the shoe — only Undo does that.
+  state.hands[zone] = [];
+  render();
+}
+
+/* ====================== RENDER ====================== */
+function buildDeckRow(){
+  const row = document.getElementById('deckRow');
+  row.innerHTML = '';
+  [1,2,4,6,8].forEach(n=>{
+    const d = document.createElement('div');
+    d.className = 'chip' + (state.decks===n ? ' active':'');
+    d.textContent = n + (n>1?' jeux':' jeu');
+    d.onclick = ()=> resetAll(n);
+    row.appendChild(d);
+  });
+}
+
+function buildCardPad(){
+  const pad = document.getElementById('cardPad');
+  pad.innerHTML = '';
+  RANKS.forEach(r=>{
+    const btn = document.createElement('div');
+    const hv = hiLoValue(r);
+    btn.className = 'card-btn ' + (hv>0?'low':hv<0?'high':'neutral');
+    btn.innerHTML = (r==='10'?'10':r) + `<span class="cnt">${state.shoe[r]}</span>`;
+    if(state.shoe[r]<=0) btn.setAttribute('disabled','disabled');
+    btn.onclick = ()=> addCard(r);
+    pad.appendChild(btn);
+  });
+}
+
+function renderHandDisplay(zone){
+  const cards = state.hands[zone];
+  const dispId = zone==='me'?'displayMe':zone==='dealer'?'displayDealer':'displayOther';
+  const disp = document.getElementById(dispId);
+  disp.innerHTML = '';
+  if(cards.length===0){
+    disp.innerHTML = '<span class="empty-hint">Aucune carte ajoutée</span>';
+  } else {
+    cards.forEach(c=>{
+      const el = document.createElement('div');
+      el.className = 'mini-card';
+      el.textContent = c==='10'?'10':c;
+      disp.appendChild(el);
+    });
+  }
+  if(zone==='me'){
+    const v = computeHandValue(cards);
+    document.getElementById('metaMe').textContent = cards.length? `Total: ${v.total}${v.soft?' (soft)':''}` : 'Ma main';
+  }
+  if(zone==='dealer'){
+    const v = computeHandValue(cards);
+    document.getElementById('metaDealer').textContent = cards.length? `Carte(s) visible(s): ${v.total}${v.soft?' (soft)':''}` : 'Carte(s) du croupier';
+  }
+}
+
+function buildShoeBar(){
+  const bar = document.getElementById('shoeBar');
+  const labels = document.getElementById('shoeLabels');
+  bar.innerHTML = ''; labels.innerHTML = '';
+  const rem = totalRemaining();
+  RANKS.forEach(r=>{
+    const n = state.shoe[r];
+    const pct = rem>0 ? (n/rem*100) : 0;
+    const seg = document.createElement('div');
+    seg.className = 'shoe-seg';
+    seg.style.flexGrow = Math.max(pct,0.001);
+    seg.textContent = n>0 ? n : '';
+    bar.appendChild(seg);
+    const lab = document.createElement('span');
+    lab.textContent = r==='10'?'10':r;
+    labels.appendChild(lab);
+  });
+  document.getElementById('shoeMeta').textContent =
+    `${rem} cartes restantes sur ${state.decks*52} (${(rem/52).toFixed(2)} jeux restants)`;
+}
+
+function render(){
+  buildDeckRow();
+  buildCardPad();
+  renderHandDisplay('me');
+  renderHandDisplay('dealer');
+  renderHandDisplay('other');
+  buildShoeBar();
+
+  document.getElementById('runningVal').textContent = state.runningCount>0?'+'+state.runningCount:state.runningCount;
+  const tc = trueCount();
+  const tcEl = document.getElementById('trueVal');
+  tcEl.textContent = tc===null ? '—' : (tc>0?'+':'')+tc.toFixed(1);
+  tcEl.className = 'value' + (tc!==null && tc<0 ? ' neg':'');
+  document.getElementById('edgeVal').textContent = estimatedEdge(tc);
+
+  const bp = bustProbability();
+  document.getElementById('bustProb').textContent = bp===null?'—':(bp*100).toFixed(1)+'%';
+  const hp = highCardProbability();
+  document.getElementById('highProb').textContent = hp===null?'—':(hp*100).toFixed(1)+'%';
+
+  const dealerRank = state.hands.dealer[0];
+  let reco = getBasicStrategy(state.hands.me, dealerRank);
+  reco = applyDeviations(reco, state.hands.me, dealerRank, tc, state.useDeviations);
+  document.getElementById('recoAction').textContent = reco ? actionLabel(reco.action) : '—';
+  document.getElementById('recoWhy').textContent = reco ? reco.why : 'Ajoutez votre main et la carte du croupier';
+
+  const insLine = document.getElementById('insuranceLine');
+  const ins = state.useDeviations ? insuranceAdvice(dealerRank, tc) : null;
+  if(ins){
+    insLine.style.display = 'block';
+    insLine.textContent = (ins.take ? '🛡️ Assurance : PRENDRE — ' : '🛡️ Assurance : NE PAS PRENDRE — ') + ins.why;
+  } else {
+    insLine.style.display = 'none';
+  }
+
+  document.getElementById('devState').textContent = state.useDeviations ? 'ON' : 'OFF';
+  document.getElementById('devToggle').classList.toggle('active', state.useDeviations);
+
+  const bet = betSuggestion(tc);
+  const badge = document.getElementById('betBadge');
+  badge.textContent = bet.label;
+  badge.className = 'bet-badge ' + bet.cls;
+
+  // tab visibility
+  ['me','dealer','other'].forEach(z=>{
+    document.getElementById('hand'+z.charAt(0).toUpperCase()+z.slice(1)).style.display = (state.activeTab===z)?'block':'none';
+  });
+  document.querySelectorAll('.tab').forEach(t=>{
+    t.classList.toggle('active', t.dataset.tab===state.activeTab);
+  });
+}
+
+function actionLabel(a){
+  const map = {HIT:'TIRER', STAND:'RESTER', DOUBLE:'DOUBLER', SPLIT:'SÉPARER', 'SURRENDER/HIT':'ABANDONNER*'};
+  return map[a] || a;
+}
+
+/* ====================== INIT & EVENTS ====================== */
+document.querySelectorAll('.tab').forEach(t=>{
+  t.addEventListener('click', ()=>{ state.activeTab = t.dataset.tab; render(); });
+});
+document.getElementById('resetShoe').addEventListener('click', ()=> resetAll(state.decks));
+document.getElementById('undoBtn').addEventListener('click', undoLast);
+document.getElementById('clearHandBtn').addEventListener('click', ()=> clearHand(state.activeTab));
+document.getElementById('devToggle').addEventListener('click', ()=>{
+  state.useDeviations = !state.useDeviations;
+  render();
+});
+
+resetAll(6);
+
+/* ====================== PWA: SERVICE WORKER ====================== */
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{ /* fonctionne quand même sans SW, juste pas offline */ });
+  });
+}
+</script>
+</body>
+</html>

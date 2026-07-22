@@ -1,0 +1,9 @@
+# Archives / exports locaux
+*.zip
+
+# Node (tests uniquement, aucune dépendance installée normalement)
+node_modules/
+
+# OS
+Thumbs.db
+.DS_Store
