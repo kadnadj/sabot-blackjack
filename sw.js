@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sabot-blackjack-v2';
+const CACHE_NAME = 'sabot-blackjack-v3';
 const ASSETS = [
   './',
   './index.html',

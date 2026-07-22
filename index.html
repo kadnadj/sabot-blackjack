@@ -354,6 +354,7 @@
     <div class="padgrid" id="cardPad"></div>
     <div class="btnrow">
       <button class="smallbtn" id="clearHandBtn">Vider cette main</button>
+      <button class="smallbtn" id="nextHandBtn">✔ Main suivante</button>
     </div>
   </div>
 
@@ -407,6 +408,26 @@
     <div class="bet-badge" id="betBadge">MISE MINIMALE</div>
   </div>
 
+  <!-- 7. Session -->
+  <div class="panel">
+    <h2><span class="n">7</span>Session</h2>
+    <div class="count-grid">
+      <div class="stat">
+        <div class="label">Mains jouées</div>
+        <div class="value" id="sessionHands" style="font-size:20px;">0</div>
+      </div>
+      <div class="stat">
+        <div class="label">TC moyen</div>
+        <div class="value" id="sessionAvgTc" style="font-size:20px;">—</div>
+      </div>
+    </div>
+    <div class="btnrow">
+      <button class="smallbtn" id="exportCsvBtn">⬇ Export CSV</button>
+      <button class="smallbtn" id="resetSessionBtn">Réinitialiser la session</button>
+    </div>
+    <div class="hand-meta" style="margin-top:8px;">Historique stocké uniquement sur cet appareil (localStorage). « Main suivante » archive la main en cours sans toucher au sabot.</div>
+  </div>
+
   <div class="disclaimer">
     Le comptage de cartes n'est pas illégal, mais son usage à la table est mal vu voire interdit
     dans les casinos physiques. Outil pédagogique / pour le jeu en ligne et l'entraînement.
@@ -425,8 +446,63 @@ let state = {
   history: [],       // stack of {rank, zone} for undo
   activeTab: 'me',
   hands: { me: [], dealer: [], other: [] },
-  useDeviations: false
+  useDeviations: false,
+  session: loadSession()   // mains archivées (localStorage uniquement)
 };
+
+/* ====================== SESSION (localStorage) ====================== */
+const SESSION_KEY = 'sabot-session';
+
+function loadSession(){
+  try{
+    const raw = localStorage.getItem('sabot-session');
+    return raw ? JSON.parse(raw) : [];
+  }catch(e){ return []; }
+}
+
+function saveSession(){
+  try{ localStorage.setItem(SESSION_KEY, JSON.stringify(state.session)); }catch(e){ /* stockage plein/indispo : on continue sans persistance */ }
+}
+
+function nextHand(){
+  if(state.hands.me.length===0 && state.hands.dealer.length===0) return;
+  const v = computeHandValue(state.hands.me);
+  const tc = trueCount(state.runningCount, state.shoe);
+  state.session.push({
+    t: new Date().toISOString(),
+    me: state.hands.me.join(' '),
+    total: state.hands.me.length ? v.total : '',
+    dealer: state.hands.dealer.join(' '),
+    rc: state.runningCount,
+    tc: tc===null ? null : Math.round(tc*10)/10
+  });
+  saveSession();
+  // Archive la main : les cartes restent "vues" (sabot et count inchangés)
+  state.hands = { me: [], dealer: [], other: [] };
+  render();
+}
+
+function exportSessionCSV(){
+  if(state.session.length===0) return;
+  const rows = [['n','heure','ma_main','total','croupier','running_count','true_count']];
+  state.session.forEach((h,i)=>{
+    rows.push([i+1, h.t, h.me, h.total, h.dealer, h.rc, (h.tc===null||h.tc===undefined)?'':h.tc]);
+  });
+  const csv = rows.map(r=>r.join(',')).join('\r\n');
+  const blob = new Blob([String.fromCharCode(0xFEFF)+csv], {type:'text/csv;charset=utf-8'}); // BOM pour Excel
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'sabot-session-' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(a.href);
+}
+
+function resetSession(){
+  if(state.session.length && !confirm('Effacer les ' + state.session.length + ' mains de la session ?')) return;
+  state.session = [];
+  saveSession();
+  render();
+}
 
 function resetAll(decks){
   state.decks = decks;
@@ -585,6 +661,13 @@ function render(){
   badge.textContent = bet.label;
   badge.className = 'bet-badge ' + bet.cls;
 
+  // Session
+  document.getElementById('sessionHands').textContent = state.session.length;
+  const tcs = state.session.map(h=>h.tc).filter(t=>t!==null && t!==undefined);
+  const avgTc = tcs.length ? tcs.reduce((a,b)=>a+b,0)/tcs.length : null;
+  document.getElementById('sessionAvgTc').textContent =
+    avgTc===null ? '—' : (avgTc>0?'+':'')+avgTc.toFixed(1);
+
   // tab visibility
   ['me','dealer','other'].forEach(z=>{
     document.getElementById('hand'+z.charAt(0).toUpperCase()+z.slice(1)).style.display = (state.activeTab===z)?'block':'none';
@@ -606,6 +689,9 @@ document.querySelectorAll('.tab').forEach(t=>{
 document.getElementById('resetShoe').addEventListener('click', ()=> resetAll(state.decks));
 document.getElementById('undoBtn').addEventListener('click', undoLast);
 document.getElementById('clearHandBtn').addEventListener('click', ()=> clearHand(state.activeTab));
+document.getElementById('nextHandBtn').addEventListener('click', nextHand);
+document.getElementById('exportCsvBtn').addEventListener('click', exportSessionCSV);
+document.getElementById('resetSessionBtn').addEventListener('click', resetSession);
 document.getElementById('devToggle').addEventListener('click', ()=>{
   state.useDeviations = !state.useDeviations;
   render();
