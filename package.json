@@ -1,0 +1,8 @@
+{
+  "name": "sabot-blackjack",
+  "private": true,
+  "description": "Assistant de comptage et stratégie blackjack (PWA vanilla)",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\""
+  }
+}
