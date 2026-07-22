@@ -87,6 +87,12 @@
     font-weight:700;
   }
 
+  /* Focus clavier visible sur tous les contrôles */
+  button:focus-visible{
+    outline:2px solid var(--gold-bright);
+    outline-offset:2px;
+  }
+
   /* Setup */
   .row{display:flex;gap:8px;flex-wrap:wrap;}
   .chip{
@@ -98,6 +104,7 @@
     border:1px solid var(--line);
     border-radius:10px;
     cursor:pointer;
+    color:var(--cream);
     font-family:'JetBrains Mono',monospace;
     font-size:14px;
     transition:all .15s;
@@ -123,6 +130,8 @@
     background:rgba(242,234,217,0.05);
     border:1px solid var(--line);
     cursor:pointer;
+    color:var(--cream);
+    font-family:inherit;
   }
   .tab.active{background:var(--felt-light);border-color:var(--gold);color:var(--gold-bright);}
 
@@ -137,6 +146,7 @@
     background:var(--cream);
     color:var(--ink);
     border-radius:8px;
+    padding:0;
     font-family:'Fraunces',serif;
     font-weight:700;
     font-size:17px;
@@ -187,6 +197,7 @@
   .btnrow{display:flex;gap:8px;margin-top:8px;}
   .smallbtn{
     padding:6px 12px;
+    font-family:inherit;
     font-size:11px;
     text-transform:uppercase;
     letter-spacing:0.5px;
@@ -303,12 +314,11 @@
   .bet-max{background:var(--gold);color:var(--ink);}
 
   .disclaimer{
-    font-size:10.5px;
+    font-size:11.5px;
     color:var(--cream-dim);
     text-align:center;
     line-height:1.5;
     padding:0 10px;
-    opacity:0.7;
   }
 </style>
 </head>
@@ -332,21 +342,21 @@
   <!-- 2. Card entry -->
   <div class="panel">
     <h2><span class="n">2</span>Cartes vues</h2>
-    <div class="tabs">
-      <div class="tab active" data-tab="me">Ma main</div>
-      <div class="tab" data-tab="dealer">Croupier</div>
-      <div class="tab" data-tab="other">Autres / brûlées</div>
+    <div class="tabs" role="tablist" aria-label="Zone de saisie des cartes">
+      <button type="button" class="tab active" data-tab="me" role="tab" aria-selected="true" aria-controls="handMe">Ma main</button>
+      <button type="button" class="tab" data-tab="dealer" role="tab" aria-selected="false" aria-controls="handDealer">Croupier</button>
+      <button type="button" class="tab" data-tab="other" role="tab" aria-selected="false" aria-controls="handOther">Autres / brûlées</button>
     </div>
 
-    <div id="handMe">
+    <div id="handMe" role="tabpanel">
       <div class="hand-meta" id="metaMe"></div>
       <div class="hand-display" id="displayMe"></div>
     </div>
-    <div id="handDealer" style="display:none;">
+    <div id="handDealer" role="tabpanel" style="display:none;">
       <div class="hand-meta" id="metaDealer"></div>
       <div class="hand-display" id="displayDealer"></div>
     </div>
-    <div id="handOther" style="display:none;">
+    <div id="handOther" role="tabpanel" style="display:none;">
       <div class="hand-meta">Cartes vues qui n'appartiennent ni à moi ni au croupier (autres joueurs, cartes brûlées)</div>
       <div class="hand-display" id="displayOther"></div>
     </div>
@@ -389,9 +399,9 @@
   <div class="panel">
     <h2><span class="n">5</span>Recommandation</h2>
     <div class="btnrow" style="margin:0 0 12px;">
-      <div class="chip" id="devToggle" style="flex:none;padding:8px 14px;">Déviations (Illustrious 18) : <b id="devState">OFF</b></div>
+      <button type="button" class="chip" id="devToggle" aria-pressed="false" style="flex:none;padding:8px 14px;">Déviations (Illustrious 18) : <b id="devState">OFF</b></button>
     </div>
-    <div class="reco">
+    <div class="reco" aria-live="polite">
       <div class="action" id="recoAction">—</div>
       <div class="why" id="recoWhy">Ajoutez votre main et la carte du croupier</div>
       <div class="why" id="insuranceLine" style="margin-top:6px;color:var(--gold-bright);display:none;"></div>
@@ -550,8 +560,10 @@ function buildDeckRow(){
   const row = document.getElementById('deckRow');
   row.innerHTML = '';
   [1,2,4,6,8].forEach(n=>{
-    const d = document.createElement('div');
+    const d = document.createElement('button');
+    d.type = 'button';
     d.className = 'chip' + (state.decks===n ? ' active':'');
+    d.setAttribute('aria-pressed', state.decks===n);
     d.textContent = n + (n>1?' jeux':' jeu');
     d.onclick = ()=> resetAll(n);
     row.appendChild(d);
@@ -562,11 +574,13 @@ function buildCardPad(){
   const pad = document.getElementById('cardPad');
   pad.innerHTML = '';
   RANKS.forEach(r=>{
-    const btn = document.createElement('div');
+    const btn = document.createElement('button');
+    btn.type = 'button';
     const hv = hiLoValue(r);
     btn.className = 'card-btn ' + (hv>0?'low':hv<0?'high':'neutral');
-    btn.innerHTML = (r==='10'?'10':r) + `<span class="cnt">${state.shoe[r]}</span>`;
-    if(state.shoe[r]<=0) btn.setAttribute('disabled','disabled');
+    btn.innerHTML = (r==='10'?'10':r) + `<span class="cnt" aria-hidden="true">${state.shoe[r]}</span>`;
+    btn.setAttribute('aria-label', `Ajouter ${RANK_LABEL[r]} (${state.shoe[r]} restantes)`);
+    btn.disabled = state.shoe[r]<=0;
     btn.onclick = ()=> addCard(r);
     pad.appendChild(btn);
   });
@@ -654,7 +668,9 @@ function render(){
   }
 
   document.getElementById('devState').textContent = state.useDeviations ? 'ON' : 'OFF';
-  document.getElementById('devToggle').classList.toggle('active', state.useDeviations);
+  const devToggle = document.getElementById('devToggle');
+  devToggle.classList.toggle('active', state.useDeviations);
+  devToggle.setAttribute('aria-pressed', state.useDeviations);
 
   const bet = betSuggestion(tc);
   const badge = document.getElementById('betBadge');
@@ -673,7 +689,9 @@ function render(){
     document.getElementById('hand'+z.charAt(0).toUpperCase()+z.slice(1)).style.display = (state.activeTab===z)?'block':'none';
   });
   document.querySelectorAll('.tab').forEach(t=>{
-    t.classList.toggle('active', t.dataset.tab===state.activeTab);
+    const selected = t.dataset.tab===state.activeTab;
+    t.classList.toggle('active', selected);
+    t.setAttribute('aria-selected', selected);
   });
 }
 
