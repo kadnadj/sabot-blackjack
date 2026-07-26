@@ -91,6 +91,35 @@ tire là où la base dit de rester.
 - La suggestion de mise (min/normale/élevée/max aux paliers TC 1/2/4) est un
   gabarit simplifié de « bet spread », pas un critère de Kelly.
 
+## Mode « Jeu illimité » (mélange continu)
+
+Sélecteur en haut du panneau 1 : **Sabot fini** ↔ **Jeu illimité**.
+
+Beaucoup de blackjack en ligne (RNG/logiciel, ou machine à mélange continu)
+tirent d'un **sabot qui ne s'épuise jamais**. Dans ce cas le comptage est
+mathématiquement inutile : le true count reste toujours ~0, l'avantage ne bouge
+pas. Le mode illimité assume cette réalité :
+
+- **Masqué** : comptage, composition du sabot, mise suggérée, déviations
+  (tout ce qui dépend d'un sabot fini).
+- **Conservé et exact** : la stratégie de base (identique en sabot infini) et
+  les probabilités **théoriques** calculées sur la distribution fixe (4/13 pour
+  les dix, 1/13 par autre rang) via `infiniteShoe()` — indépendantes de
+  l'historique, comme il se doit. Ex. : prob. de bust d'un dur 16 = 8/13 ≈
+  61,5 % ; prochaine carte forte (10/As) = 5/13 ≈ 38,5 %.
+
+Le pavé de cartes reste tapable sans limite (le même rang autant de fois que
+voulu), puisque rien ne s'épuise. **N'utilise le mode fini que pour du live
+dealer** avec un vrai sabot et une pénétration correcte — c'est le seul cas où
+le comptage a un sens.
+
+## Mode compact
+
+Bouton **⤢ Mode compact** (en haut à droite) : resserre l'interface (colonne
+étroite, panneaux secondaires repliés) pour l'afficher **à côté du jeu** sur le
+même écran. Préférence mémorisée en local. Sinon, le plus pratique reste de
+l'installer sur le **téléphone** posé à côté du PC (elle marche hors-ligne).
+
 ## Historique de session
 
 « **Main suivante** » archive la main en cours (heure, cartes, total, carte

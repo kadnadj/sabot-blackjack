@@ -3,7 +3,7 @@ const { test, describe } = require('node:test');
 const assert = require('node:assert/strict');
 
 const {
-  hiLoValue, initShoe, computeHandValue, applyDeviations, insuranceAdvice,
+  hiLoValue, initShoe, infiniteShoe, computeHandValue, applyDeviations, insuranceAdvice,
   getBasicStrategy, totalRemaining, bustProbability, highCardProbability,
   trueCount, betSuggestion
 } = require('../engine.js');
@@ -271,6 +271,20 @@ describe('comptage & probabilités', () => {
   test('highCardProbability = (10 + As) / restantes', () => {
     const shoe = initShoe(1); // 16+4 = 20 sur 52
     assert.equal(highCardProbability(shoe), 20 / 52);
+  });
+
+  test('infiniteShoe : distribution 1/13, dix 4/13', () => {
+    const shoe = infiniteShoe();
+    assert.equal(totalRemaining(shoe), 13);
+    assert.equal(shoe['10'], 4);
+    assert.equal(shoe['A'], 1);
+    // carte forte (10 ou As) = 5/13 quelle que soit l'historique
+    assert.equal(highCardProbability(shoe), 5 / 13);
+  });
+
+  test('bustProbability en sabot infini : dur 16 → 8/13', () => {
+    // Tout ce qui vaut ≥6 fait sauter un 16 : 6,7,8,9,10 → 1+1+1+1+4 = 8 sur 13
+    assert.equal(bustProbability(infiniteShoe(), ['10', '6']), 8 / 13);
   });
 
   test('betSuggestion : paliers à TC 1 / 2 / 4', () => {

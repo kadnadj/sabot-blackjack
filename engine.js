@@ -25,6 +25,15 @@ function initShoe(decks){
   return shoe;
 }
 
+// Distribution d'un sabot illimité / mélange continu : proportions fixes
+// (4/13 pour les dix, 1/13 pour chaque autre rang), utilisée pour les
+// probabilités théoriques quand le comptage n'a pas de sens.
+function infiniteShoe(){
+  const shoe = {};
+  RANKS.forEach(r=>{ shoe[r] = (r==='10') ? 4 : 1; });
+  return shoe;
+}
+
 /* ====================== HAND VALUE ====================== */
 function rankValue(r){
   if(r==='A') return 11;
@@ -189,7 +198,7 @@ function betSuggestion(tc){
 /* ====================== EXPORT NODE (tests) ====================== */
 if(typeof module !== 'undefined' && module.exports){
   module.exports = {
-    RANKS, RANK_LABEL, hiLoValue, initShoe, rankValue, computeHandValue,
+    RANKS, RANK_LABEL, hiLoValue, initShoe, infiniteShoe, rankValue, computeHandValue,
     DEVIATIONS, applyDeviations, insuranceAdvice, getBasicStrategy,
     totalRemaining, bustProbability, highCardProbability,
     trueCount, estimatedEdge, betSuggestion

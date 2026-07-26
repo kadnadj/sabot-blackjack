@@ -320,6 +320,39 @@
     line-height:1.5;
     padding:0 10px;
   }
+
+  .mode-note{
+    font-size:11.5px;
+    line-height:1.5;
+    color:var(--cream);
+    background:rgba(201,162,75,0.12);
+    border:1px solid var(--gold);
+    border-radius:10px;
+    padding:10px 12px;
+    margin-bottom:12px;
+  }
+
+  .topbar{
+    display:flex;
+    justify-content:flex-end;
+    margin-bottom:8px;
+  }
+
+  /* Mode compact : resserre l'app pour une colonne étroite à côté du jeu */
+  body.compact .wrap{max-width:380px;}
+  body.compact header{padding:8px 0 8px;margin-bottom:10px;}
+  body.compact header h1{font-size:20px;}
+  body.compact header .sub{display:none;}
+  body.compact .panel{padding:10px;margin-bottom:8px;border-radius:10px;}
+  body.compact .panel h2{font-size:12px;margin:0 0 8px;}
+  body.compact .disclaimer{display:none;}
+  body.compact .reco{padding:12px;}
+  body.compact .reco .action{font-size:26px;}
+  body.compact .card-btn{font-size:15px;}
+  /* En compact, on masque les panneaux secondaires pour ne garder que
+     l'essentiel : saisie, comptage et recommandation. */
+  body.compact #panelShoe,
+  body.compact #panelSession{display:none;}
 </style>
 </head>
 <body>
@@ -329,10 +362,20 @@
     <div class="sub">Assistant de comptage &amp; stratégie blackjack</div>
   </header>
 
+  <div class="topbar">
+    <button type="button" class="smallbtn" id="compactToggle" aria-pressed="false">⤢ Mode compact</button>
+  </div>
+
   <!-- 1. Setup -->
   <div class="panel">
-    <h2><span class="n">1</span>Sabot</h2>
-    <div class="row" id="deckRow"></div>
+    <h2><span class="n">1</span>Mode &amp; sabot</h2>
+    <div class="row" id="modeRow"></div>
+    <div class="row" id="deckRow" style="margin-top:8px;"></div>
+    <div class="mode-note" id="infiniteNote" style="display:none;margin-top:10px;margin-bottom:0;">
+      <b>Jeu illimité / mélange continu.</b> Le sabot ne s'épuise jamais : le comptage
+      n'apporte aucun avantage (comptage, mise et déviations sont donc masqués).
+      L'app fournit la stratégie de base et les probabilités théoriques.
+    </div>
     <div class="btnrow">
       <button class="smallbtn" id="resetShoe">↺ Nouveau sabot</button>
       <button class="smallbtn" id="undoBtn">⌫ Annuler dernière carte</button>
@@ -369,7 +412,7 @@
   </div>
 
   <!-- 3. Count -->
-  <div class="panel">
+  <div class="panel" id="panelCount">
     <h2><span class="n">3</span>Comptage (Hi-Lo)</h2>
     <div class="count-grid">
       <div class="stat">
@@ -388,7 +431,7 @@
   </div>
 
   <!-- 4. Shoe composition -->
-  <div class="panel">
+  <div class="panel" id="panelShoe">
     <h2><span class="n">4</span>Composition du sabot restant</h2>
     <div class="shoe-bar" id="shoeBar"></div>
     <div class="shoe-labels" id="shoeLabels"></div>
@@ -413,13 +456,13 @@
   </div>
 
   <!-- 6. Bet -->
-  <div class="panel" style="text-align:center;">
+  <div class="panel" id="panelBet" style="text-align:center;">
     <h2 style="justify-content:center;"><span class="n">6</span>Mise suggérée</h2>
     <div class="bet-badge" id="betBadge">MISE MINIMALE</div>
   </div>
 
   <!-- 7. Session -->
-  <div class="panel">
+  <div class="panel" id="panelSession">
     <h2><span class="n">7</span>Session</h2>
     <div class="count-grid">
       <div class="stat">
@@ -451,6 +494,7 @@
 /* ====================== STATE ====================== */
 let state = {
   decks: 6,
+  infinite: false,   // jeu illimité / mélange continu (pas de comptage)
   shoe: {},          // remaining count per rank
   runningCount: 0,
   history: [],       // stack of {rank, zone} for undo
@@ -459,6 +503,12 @@ let state = {
   useDeviations: false,
   session: loadSession()   // mains archivées (localStorage uniquement)
 };
+
+// Sabot utilisé pour les probabilités : réel en mode fini, distribution
+// fixe en mode illimité (le sabot ne s'épuise jamais).
+function probShoe(){
+  return state.infinite ? infiniteShoe() : state.shoe;
+}
 
 /* ====================== SESSION (localStorage) ====================== */
 const SESSION_KEY = 'sabot-session';
@@ -477,13 +527,13 @@ function saveSession(){
 function nextHand(){
   if(state.hands.me.length===0 && state.hands.dealer.length===0) return;
   const v = computeHandValue(state.hands.me);
-  const tc = trueCount(state.runningCount, state.shoe);
+  const tc = state.infinite ? null : trueCount(state.runningCount, state.shoe);
   state.session.push({
     t: new Date().toISOString(),
     me: state.hands.me.join(' '),
     total: state.hands.me.length ? v.total : '',
     dealer: state.hands.dealer.join(' '),
-    rc: state.runningCount,
+    rc: state.infinite ? '' : state.runningCount,
     tc: tc===null ? null : Math.round(tc*10)/10
   });
   saveSession();
@@ -523,12 +573,21 @@ function resetAll(decks){
   render();
 }
 
+function setMode(infinite){
+  state.infinite = infinite;
+  resetAll(state.decks); // repart d'un sabot/comptage propre
+}
+
 /* ====================== ACTIONS ====================== */
 function addCard(rank){
   const zone = state.activeTab;
-  if(state.shoe[rank]<=0) return; // none left
-  state.shoe[rank]--;
-  state.runningCount += hiLoValue(rank);
+  // En mode illimité, le sabot ne s'épuise pas et le comptage n'a pas de sens :
+  // on n'enregistre que la carte pour connaître la main.
+  if(!state.infinite){
+    if(state.shoe[rank]<=0) return; // plus de cette carte
+    state.shoe[rank]--;
+    state.runningCount += hiLoValue(rank);
+  }
   state.history.push({rank, zone});
   if(zone==='me') state.hands.me.push(rank);
   else if(zone==='dealer') state.hands.dealer.push(rank);
@@ -539,8 +598,10 @@ function addCard(rank){
 function undoLast(){
   const last = state.history.pop();
   if(!last) return;
-  state.shoe[last.rank]++;
-  state.runningCount -= hiLoValue(last.rank);
+  if(!state.infinite){
+    state.shoe[last.rank]++;
+    state.runningCount -= hiLoValue(last.rank);
+  }
   const arr = state.hands[last.zone];
   const idx = arr.lastIndexOf(last.rank);
   if(idx>-1) arr.splice(idx,1);
@@ -556,8 +617,26 @@ function clearHand(zone){
 }
 
 /* ====================== RENDER ====================== */
+function buildModeRow(){
+  const row = document.getElementById('modeRow');
+  row.innerHTML = '';
+  [
+    {inf:false, label:'Sabot fini'},
+    {inf:true,  label:'Jeu illimité'}
+  ].forEach(m=>{
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'chip' + (state.infinite===m.inf ? ' active':'');
+    b.setAttribute('aria-pressed', state.infinite===m.inf);
+    b.textContent = m.label;
+    b.onclick = ()=> setMode(m.inf);
+    row.appendChild(b);
+  });
+}
+
 function buildDeckRow(){
   const row = document.getElementById('deckRow');
+  row.style.display = state.infinite ? 'none' : 'flex';
   row.innerHTML = '';
   [1,2,4,6,8].forEach(n=>{
     const d = document.createElement('button');
@@ -578,9 +657,14 @@ function buildCardPad(){
     btn.type = 'button';
     const hv = hiLoValue(r);
     btn.className = 'card-btn ' + (hv>0?'low':hv<0?'high':'neutral');
-    btn.innerHTML = (r==='10'?'10':r) + `<span class="cnt" aria-hidden="true">${state.shoe[r]}</span>`;
-    btn.setAttribute('aria-label', `Ajouter ${RANK_LABEL[r]} (${state.shoe[r]} restantes)`);
-    btn.disabled = state.shoe[r]<=0;
+    if(state.infinite){
+      btn.textContent = (r==='10'?'10':r);
+      btn.setAttribute('aria-label', `Ajouter ${RANK_LABEL[r]}`);
+    } else {
+      btn.innerHTML = (r==='10'?'10':r) + `<span class="cnt" aria-hidden="true">${state.shoe[r]}</span>`;
+      btn.setAttribute('aria-label', `Ajouter ${RANK_LABEL[r]} (${state.shoe[r]} restantes)`);
+      btn.disabled = state.shoe[r]<=0;
+    }
     btn.onclick = ()=> addCard(r);
     pad.appendChild(btn);
   });
@@ -633,23 +717,38 @@ function buildShoeBar(){
 }
 
 function render(){
+  const inf = state.infinite;
+  // Bascule d'affichage selon le mode
+  document.getElementById('infiniteNote').style.display = inf ? 'block' : 'none';
+  document.getElementById('panelCount').style.display = inf ? 'none' : 'block';
+  document.getElementById('panelShoe').style.display  = inf ? 'none' : 'block';
+  document.getElementById('panelBet').style.display   = inf ? 'none' : 'block';
+  // En mode illimité, pas de TC → pas de déviations : on force OFF et on masque le toggle
+  document.getElementById('devToggle').style.display = inf ? 'none' : 'inline-block';
+  if(inf) state.useDeviations = false;
+
+  buildModeRow();
   buildDeckRow();
   buildCardPad();
   renderHandDisplay('me');
   renderHandDisplay('dealer');
   renderHandDisplay('other');
-  buildShoeBar();
+  if(!inf) buildShoeBar();
 
-  document.getElementById('runningVal').textContent = state.runningCount>0?'+'+state.runningCount:state.runningCount;
-  const tc = trueCount(state.runningCount, state.shoe);
-  const tcEl = document.getElementById('trueVal');
-  tcEl.textContent = tc===null ? '—' : (tc>0?'+':'')+tc.toFixed(1);
-  tcEl.className = 'value' + (tc!==null && tc<0 ? ' neg':'');
-  document.getElementById('edgeVal').textContent = estimatedEdge(tc);
+  const tc = inf ? null : trueCount(state.runningCount, state.shoe);
+  if(!inf){
+    document.getElementById('runningVal').textContent = state.runningCount>0?'+'+state.runningCount:state.runningCount;
+    const tcEl = document.getElementById('trueVal');
+    tcEl.textContent = tc===null ? '—' : (tc>0?'+':'')+tc.toFixed(1);
+    tcEl.className = 'value' + (tc!==null && tc<0 ? ' neg':'');
+    document.getElementById('edgeVal').textContent = estimatedEdge(tc);
+  }
 
-  const bp = bustProbability(state.shoe, state.hands.me);
+  // Probabilités : sabot réel (fini) ou distribution fixe (illimité)
+  const ps = probShoe();
+  const bp = bustProbability(ps, state.hands.me);
   document.getElementById('bustProb').textContent = bp===null?'—':(bp*100).toFixed(1)+'%';
-  const hp = highCardProbability(state.shoe);
+  const hp = highCardProbability(ps);
   document.getElementById('highProb').textContent = hp===null?'—':(hp*100).toFixed(1)+'%';
 
   const dealerRank = state.hands.dealer[0];
@@ -715,7 +814,20 @@ document.getElementById('devToggle').addEventListener('click', ()=>{
   render();
 });
 
+/* Mode compact (préférence persistée) */
+function applyCompact(on){
+  document.body.classList.toggle('compact', on);
+  const btn = document.getElementById('compactToggle');
+  btn.setAttribute('aria-pressed', on);
+  btn.textContent = on ? '⤡ Vue normale' : '⤢ Mode compact';
+  try{ localStorage.setItem('sabot-compact', on ? '1' : '0'); }catch(e){}
+}
+document.getElementById('compactToggle').addEventListener('click', ()=>{
+  applyCompact(!document.body.classList.contains('compact'));
+});
+
 resetAll(6);
+try{ if(localStorage.getItem('sabot-compact')==='1') applyCompact(true); }catch(e){}
 
 /* ====================== PWA: SERVICE WORKER ====================== */
 if('serviceWorker' in navigator){
